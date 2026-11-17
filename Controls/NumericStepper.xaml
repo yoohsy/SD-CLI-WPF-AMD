@@ -1,0 +1,96 @@
+<UserControl x:Class="CdCliWpf.Controls.NumericStepper"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             MinWidth="70">
+    <UserControl.Resources>
+        <Style TargetType="RepeatButton">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border x:Name="Bd" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#18FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#33ED1C24" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <UserControl.Style>
+        <Style TargetType="UserControl">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Style>
+
+    <Border Background="{DynamicResource FieldBrush}"
+            BorderBrush="{DynamicResource LineBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="25" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox x:Name="PART_TextBox"
+                     Grid.Column="0"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Foreground="{DynamicResource TextBrush}"
+                     CaretBrush="{DynamicResource AccentBrush}"
+                     SelectionBrush="{DynamicResource AccentBrush}"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     HorizontalContentAlignment="Center"
+                     VerticalContentAlignment="Center"
+                     Padding="2,0" />
+
+            <Grid Grid.Column="1" Background="{DynamicResource RaisedBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <RepeatButton x:Name="PART_Up"
+                              Grid.Row="0"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Padding="0"
+                              Click="PART_Up_Click">
+                    <Path Data="M0,5 L5,0 L10,5 Z"
+                          Fill="{DynamicResource MutedBrush}"
+                          Stretch="Uniform"
+                          Width="7"
+                          Height="5" />
+                </RepeatButton>
+
+                <RepeatButton x:Name="PART_Down"
+                              Grid.Row="1"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Padding="0"
+                              Click="PART_Down_Click">
+                    <Path Data="M0,0 L10,0 L5,5 Z"
+                          Fill="{DynamicResource MutedBrush}"
+                          Stretch="Uniform"
+                          Width="7"
+                          Height="5" />
+                </RepeatButton>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>
