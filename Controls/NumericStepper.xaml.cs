@@ -8,6 +8,8 @@ namespace CdCliWpf.Controls;
 
 public partial class NumericStepper : UserControl
 {
+    private bool _updatingText;
+
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(
         nameof(Value), typeof(double), typeof(NumericStepper),
         new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnValueChanged, CoerceValue));
@@ -31,6 +33,7 @@ public partial class NumericStepper : UserControl
     public NumericStepper()
     {
         InitializeComponent();
+        PART_TextBox.TextChanged += PART_TextBox_TextChanged;
         PART_TextBox.LostFocus += (_, _) => CommitText();
         PART_TextBox.KeyDown += PART_TextBox_KeyDown;
         Loaded += (_, _) => UpdateText();
@@ -86,6 +89,16 @@ public partial class NumericStepper : UserControl
         return Math.Min(stepper.Maximum, Math.Max(stepper.Minimum, value));
     }
 
+    private void PART_TextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingText)
+            return;
+
+        var raw = PART_TextBox.Text.Trim().Replace(',', '.');
+        if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            Value = parsed;
+    }
+
     private void PART_TextBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter)
@@ -107,11 +120,19 @@ public partial class NumericStepper : UserControl
 
     private void UpdateText()
     {
-        if (PART_TextBox is null || PART_TextBox.IsFocused)
+        if (_updatingText || PART_TextBox is null || PART_TextBox.IsFocused)
             return;
 
-        var format = Decimals > 0 ? "F" + Decimals.ToString(CultureInfo.InvariantCulture) : "0";
-        PART_TextBox.Text = Value.ToString(format, CultureInfo.InvariantCulture);
+        _updatingText = true;
+        try
+        {
+            var format = Decimals > 0 ? "F" + Decimals.ToString(CultureInfo.InvariantCulture) : "0";
+            PART_TextBox.Text = Value.ToString(format, CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _updatingText = false;
+        }
     }
 
     private void PART_Up_Click(object sender, RoutedEventArgs e) => Value += Step;

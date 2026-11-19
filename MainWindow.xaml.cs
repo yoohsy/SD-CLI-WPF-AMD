@@ -72,6 +72,9 @@ public partial class MainWindow : Window
     private void LoraDrop_PreviewDrop(object sender, DragEventArgs e)
         => HandleFileDrop(e, ViewModel.SetLoraPath, ".safetensors");
 
+    private void InitImageDrop_PreviewDrop(object sender, DragEventArgs e)
+        => HandleFileDrop(e, ViewModel.SetInitImagePath, ".png", ".jpg", ".jpeg", ".webp", ".bmp");
+
     private void OutputDrop_PreviewDrop(object sender, DragEventArgs e)
     {
         if (!e.Data.GetDataPresent(DataFormats.FileDrop))

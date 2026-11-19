@@ -37,6 +37,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private double _height = 768;
     private double _seed = 42;
     private double _loraWeight = 0.65;
+    private string _initImagePath = "";
+    private double _initImageStrength = 0.75;
     private bool _useLora;
     private bool _randomSeed;
     private bool _isGenerating;
@@ -71,12 +73,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _outputDirectory = settings.OutputDirectory;
         _prompt = settings.Prompt;
         _negativePrompt = settings.NegativePrompt;
+        _pose = settings.Pose;
         _steps = settings.Steps;
         _cfg = settings.Cfg;
         _width = settings.Width;
         _height = settings.Height;
         _seed = settings.Seed;
         _loraWeight = settings.LoraWeight;
+        _initImagePath = settings.InitImagePath;
+        _initImageStrength = Math.Clamp(settings.InitImageStrength, 0.05, 1.0);
         _useLora = settings.UseLora;
         _randomSeed = settings.RandomSeed;
         _videoModelPath = settings.VideoModelPath;
@@ -102,6 +107,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ContinueCommand = new RelayCommand(() => SelectMode(Mode), () => !IsGenerating);
         BrowseModelCommand = new RelayCommand(BrowseModel);
         BrowseLoraCommand = new RelayCommand(BrowseLora);
+        BrowseInitImageCommand = new RelayCommand(BrowseInitImage);
+        ClearInitImageCommand = new RelayCommand(ClearInitImage, () => !string.IsNullOrWhiteSpace(InitImagePath));
         BrowseOutputCommand = new RelayCommand(BrowseOutput);
         BrowseVideoModelCommand = new RelayCommand(BrowseVideoModel);
         BrowseVideoEncoderCommand = new RelayCommand(BrowseVideoEncoder);
@@ -141,6 +148,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public RelayCommand ContinueCommand { get; }
     public RelayCommand BrowseModelCommand { get; }
     public RelayCommand BrowseLoraCommand { get; }
+    public RelayCommand BrowseInitImageCommand { get; }
+    public RelayCommand ClearInitImageCommand { get; }
     public RelayCommand BrowseOutputCommand { get; }
     public RelayCommand BrowseVideoModelCommand { get; }
     public RelayCommand BrowseVideoEncoderCommand { get; }
@@ -197,9 +206,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public double Width { get => _width; set => SetNumber(ref _width, value, 768, 512, 2048); }
     public double Height { get => _height; set => SetNumber(ref _height, value, 768, 512, 2048); }
     public double Seed { get => _seed; set => SetNumber(ref _seed, value, 42, 1, 1000000000); }
-    public double LoraWeight { get => _loraWeight; set => SetNumber(ref _loraWeight, value, 0.65, 0.05, 1.5); }
+        public double LoraWeight { get => _loraWeight; set => SetNumber(ref _loraWeight, value, 0.65, 0.05, 1.5); }
+    public string InitImagePath { get => _initImagePath; set => SetText(ref _initImagePath, value); }
+    public double InitImageStrength { get => _initImageStrength; set => SetNumber(ref _initImageStrength, value, 0.75, 0.05, 1.0); }
 
-    public string VideoModelPath { get => _videoModelPath; set => SetText(ref _videoModelPath, value); }
+    public string VideoModelPath
+ { get => _videoModelPath; set => SetText(ref _videoModelPath, value); }
     public string VideoTextEncoderPath { get => _videoTextEncoderPath; set => SetText(ref _videoTextEncoderPath, value); }
     public string VideoVaePath { get => _videoVaePath; set => SetText(ref _videoVaePath, value); }
     public string VideoInitImagePath { get => _videoInitImagePath; set => SetText(ref _videoInitImagePath, value); }
@@ -244,7 +256,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         && !string.IsNullOrWhiteSpace(ModelPath)
         && File.Exists(ModelPath)
         && !string.IsNullOrWhiteSpace(OutputDirectory)
-        && (!UseLora || !string.IsNullOrWhiteSpace(LoraPath));
+        && (!UseLora || !string.IsNullOrWhiteSpace(LoraPath))
+        && (string.IsNullOrWhiteSpace(InitImagePath) || File.Exists(InitImagePath));
 
     public bool CanGenerateVideo => !IsGenerating && EngineReady
         && !string.IsNullOrWhiteSpace(VideoModelPath)
@@ -274,6 +287,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
         LoraPath = path;
         UseLora = true;
         Status = "LoRA: " + Path.GetFileName(path);
+        SaveSettings();
+    }
+
+    public void SetInitImagePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return;
+        InitImagePath = path;
+        Status = "Исходник: " + Path.GetFileName(path);
+        SaveSettings();
+    }
+
+    private void ClearInitImage()
+    {
+        InitImagePath = "";
+        Status = "Исходник убран";
         SaveSettings();
     }
 
@@ -382,6 +411,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SetLoraPath(dialog.FileName);
     }
 
+    private void BrowseInitImage()
+        => BrowseImageFile("Выберите исходное изображение", InitImagePath, SetInitImagePath);
+
     private void BrowseOutput()
     {
         var dialog = new OpenFolderDialog { FolderName = OutputDirectory };
@@ -435,6 +467,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             apply(dialog.FileName);
     }
 
+    private static int ResolveSeed(bool random, double configured)
+        => random ? Random.Shared.Next(1, int.MaxValue) : (int)configured;
+
     private async void Generate()
     {
         if (!CanGenerate)
@@ -454,12 +489,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
+        if (!string.IsNullOrWhiteSpace(InitImagePath) && !File.Exists(InitImagePath))
+        {
+            Status = "Файл исходника не найден";
+            AppendLog("Исходник не найден: " + InitImagePath);
+            return;
+        }
+
         var finalPrompt = JoinPrompt(Prompt, Pose);
         var loraName = Path.GetFileNameWithoutExtension(LoraPath);
         if (UseLora)
             finalPrompt += " <lora:" + loraName + ":" + LoraWeight.ToString("0.00", CultureInfo.InvariantCulture) + ">";
 
-        var outputPath = Path.Combine(OutputDirectory, "gen_" + DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture) + ".png");
+        var seed = ResolveSeed(RandomSeed, Seed);
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        var outputPath = Path.Combine(OutputDirectory, "gen_" + stamp + "_s" + seed.ToString(CultureInfo.InvariantCulture) + ".png");
         var request = new GenerationRequest(
             ModelPath,
             finalPrompt,
@@ -468,16 +512,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Height,
             Steps,
             Cfg,
-            RandomSeed ? -1 : Seed,
+            seed,
             UseLora,
             LoraPath,
             LoraWeight,
+            InitImagePath,
+            InitImageStrength,
             outputPath);
 
         IsGenerating = true;
         Status = "Генерация...";
         AppendLog("Запуск: " + Path.GetFileName(outputPath));
         AppendLog("Промпт: " + finalPrompt);
+        AppendLog("Сид: " + seed.ToString(CultureInfo.InvariantCulture));
+        if (!string.IsNullOrWhiteSpace(InitImagePath))
+            AppendLog("Исходник: " + Path.GetFileName(InitImagePath) + " · сила " + InitImageStrength.ToString("0.00", CultureInfo.InvariantCulture));
 
         _cancellation?.Dispose();
         _cancellation = new CancellationTokenSource();
@@ -552,9 +601,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         var finalPrompt = VideoPrompt.Trim();
+        var seed = ResolveSeed(VideoRandomSeed, VideoSeed);
         var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
-        var outputPath = Path.Combine(VideoOutputDirectory, "vid_" + stamp + ".webm");
-        var previewPath = Path.Combine(VideoOutputDirectory, "vid_" + stamp + "_preview.png");
+        var seedSuffix = "_s" + seed.ToString(CultureInfo.InvariantCulture);
+        var outputPath = Path.Combine(VideoOutputDirectory, "vid_" + stamp + seedSuffix + ".webm");
+        var previewPath = Path.Combine(VideoOutputDirectory, "vid_" + stamp + seedSuffix + "_preview.png");
         var request = new VideoGenerationRequest(
             VideoModelPath,
             VideoTextEncoderPath,
@@ -568,7 +619,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             VideoHeight,
             VideoSteps,
             VideoCfg,
-            VideoRandomSeed ? -1 : VideoSeed,
+            seed,
             (int)VideoFrames,
             (int)VideoFps,
             outputPath,
@@ -578,6 +629,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Status = "Генерация видео...";
         AppendLog("Запуск видео: " + Path.GetFileName(outputPath));
         AppendLog("Промпт: " + finalPrompt);
+        AppendLog("Сид: " + seed.ToString(CultureInfo.InvariantCulture));
 
         _cancellation?.Dispose();
         _cancellation = new CancellationTokenSource();
@@ -659,6 +711,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (name.Length > 11 && (name.StartsWith("gen_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("vid_", StringComparison.OrdinalIgnoreCase)))
         {
             var stamp = name[4..];
+            var seedIndex = stamp.IndexOf("_s", StringComparison.Ordinal);
+            if (seedIndex > 0)
+                stamp = stamp[..seedIndex];
             if (DateTime.TryParseExact(stamp, "yyyyMMdd_HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
                 item.CreatedAt = parsed;
         }
@@ -730,12 +785,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OutputDirectory = OutputDirectory,
         Prompt = Prompt,
         NegativePrompt = NegativePrompt,
+        Pose = Pose,
         Steps = Steps,
         Cfg = Cfg,
         Width = Width,
         Height = Height,
         Seed = Seed,
         LoraWeight = LoraWeight,
+        InitImagePath = InitImagePath,
+        InitImageStrength = InitImageStrength,
         UseLora = UseLora,
         RandomSeed = RandomSeed,
         VideoModelPath = VideoModelPath,
@@ -789,6 +847,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void Refresh()
     {
+        ClearInitImageCommand.RaiseCanExecuteChanged();
         GenerateCommand.RaiseCanExecuteChanged();
         GenerateVideoCommand.RaiseCanExecuteChanged();
         SelectPhotoModeCommand.RaiseCanExecuteChanged();

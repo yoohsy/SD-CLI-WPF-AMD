@@ -19,12 +19,15 @@ public sealed class AppSettings
     public string OutputDirectory { get; set; } = "";
     public string Prompt { get; set; } = "";
     public string NegativePrompt { get; set; } = "";
+    public string Pose { get; set; } = "";
     public double Steps { get; set; } = 25;
     public double Cfg { get; set; } = 6.0;
     public double Width { get; set; } = 768;
     public double Height { get; set; } = 768;
     public double Seed { get; set; } = 42;
     public double LoraWeight { get; set; } = 0.65;
+    public string InitImagePath { get; set; } = "";
+    public double InitImageStrength { get; set; } = 0.75;
     public bool UseLora { get; set; }
     public bool RandomSeed { get; set; }
 
@@ -82,12 +85,15 @@ public static class SettingsService
                 case nameof(AppSettings.OutputDirectory): settings.OutputDirectory = value; break;
                 case nameof(AppSettings.Prompt): settings.Prompt = DecodeText(value); break;
                 case nameof(AppSettings.NegativePrompt): settings.NegativePrompt = DecodeText(value); break;
+                case nameof(AppSettings.Pose): settings.Pose = DecodeText(value); break;
                 case nameof(AppSettings.Steps): settings.Steps = ParseDouble(value, settings.Steps); break;
                 case nameof(AppSettings.Cfg): settings.Cfg = ParseDouble(value, settings.Cfg); break;
                 case nameof(AppSettings.Width): settings.Width = ParseDouble(value, settings.Width); break;
                 case nameof(AppSettings.Height): settings.Height = ParseDouble(value, settings.Height); break;
                 case nameof(AppSettings.Seed): settings.Seed = ParseDouble(value, settings.Seed); break;
                 case nameof(AppSettings.LoraWeight): settings.LoraWeight = ParseDouble(value, settings.LoraWeight); break;
+                case nameof(AppSettings.InitImagePath): settings.InitImagePath = value; break;
+                case nameof(AppSettings.InitImageStrength): settings.InitImageStrength = ParseDouble(value, settings.InitImageStrength); break;
                 case nameof(AppSettings.UseLora): settings.UseLora = value.Equals("true", StringComparison.OrdinalIgnoreCase); break;
                 case nameof(AppSettings.RandomSeed): settings.RandomSeed = value.Equals("true", StringComparison.OrdinalIgnoreCase); break;
                 case nameof(AppSettings.VideoModelPath): settings.VideoModelPath = value; break;
@@ -123,12 +129,15 @@ public static class SettingsService
             nameof(AppSettings.OutputDirectory) + "=" + settings.OutputDirectory,
             nameof(AppSettings.Prompt) + "=" + EncodeText(settings.Prompt),
             nameof(AppSettings.NegativePrompt) + "=" + EncodeText(settings.NegativePrompt),
+            nameof(AppSettings.Pose) + "=" + EncodeText(settings.Pose),
             nameof(AppSettings.Steps) + "=" + settings.Steps.ToString(CultureInfo.InvariantCulture),
             nameof(AppSettings.Cfg) + "=" + settings.Cfg.ToString(CultureInfo.InvariantCulture),
             nameof(AppSettings.Width) + "=" + settings.Width.ToString(CultureInfo.InvariantCulture),
             nameof(AppSettings.Height) + "=" + settings.Height.ToString(CultureInfo.InvariantCulture),
             nameof(AppSettings.Seed) + "=" + settings.Seed.ToString(CultureInfo.InvariantCulture),
             nameof(AppSettings.LoraWeight) + "=" + settings.LoraWeight.ToString(CultureInfo.InvariantCulture),
+            nameof(AppSettings.InitImagePath) + "=" + settings.InitImagePath,
+            nameof(AppSettings.InitImageStrength) + "=" + settings.InitImageStrength.ToString(CultureInfo.InvariantCulture),
             nameof(AppSettings.UseLora) + "=" + settings.UseLora,
             nameof(AppSettings.RandomSeed) + "=" + settings.RandomSeed,
             nameof(AppSettings.VideoModelPath) + "=" + settings.VideoModelPath,

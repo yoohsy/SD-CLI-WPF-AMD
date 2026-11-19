@@ -19,6 +19,8 @@ public sealed record GenerationRequest(
     bool UseLora,
     string LoraPath,
     double LoraWeight,
+    string InitImagePath,
+    double InitImageStrength,
     string OutputPath);
 
 public sealed record VideoGenerationRequest(
@@ -88,6 +90,14 @@ public sealed class EngineRunner
         psi.ArgumentList.Add("--vae-tiling");
         psi.ArgumentList.Add("-s");
         psi.ArgumentList.Add(((int)request.Seed).ToString(CultureInfo.InvariantCulture));
+
+        if (!string.IsNullOrWhiteSpace(request.InitImagePath))
+        {
+            psi.ArgumentList.Add("-i");
+            psi.ArgumentList.Add(request.InitImagePath);
+            psi.ArgumentList.Add("--strength");
+            psi.ArgumentList.Add(request.InitImageStrength.ToString("0.00", CultureInfo.InvariantCulture));
+        }
 
         if (request.UseLora && !string.IsNullOrWhiteSpace(request.LoraPath))
         {
