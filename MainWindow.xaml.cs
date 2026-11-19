@@ -90,6 +90,45 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void VideoModelDrop_PreviewDrop(object sender, DragEventArgs e)
+        => HandleFileDrop(e, ViewModel.SetVideoModelPath, ".gguf", ".safetensors");
+
+    private void VideoEncoderDrop_PreviewDrop(object sender, DragEventArgs e)
+        => HandleFileDrop(e, ViewModel.SetVideoTextEncoderPath, ".gguf", ".safetensors");
+
+    private void VideoVaeDrop_PreviewDrop(object sender, DragEventArgs e)
+        => HandleFileDrop(e, ViewModel.SetVideoVaePath, ".gguf", ".safetensors");
+
+    private void VideoInitImageDrop_PreviewDrop(object sender, DragEventArgs e)
+        => HandleFileDrop(e, ViewModel.SetVideoInitImagePath, ".png", ".jpg", ".jpeg", ".webp", ".bmp");
+
+    private void VideoEndImageDrop_PreviewDrop(object sender, DragEventArgs e)
+        => HandleFileDrop(e, ViewModel.SetVideoEndImagePath, ".png", ".jpg", ".jpeg", ".webp", ".bmp");
+
+    private void VideoClipVisionDrop_PreviewDrop(object sender, DragEventArgs e)
+        => HandleFileDrop(e, ViewModel.SetVideoClipVisionPath, ".gguf", ".safetensors");
+
+    private void VideoOutputDrop_PreviewDrop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            return;
+
+        var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+        if (files is null || files.Length == 0)
+            return;
+
+        var path = files[0];
+        if (Directory.Exists(path))
+            ViewModel.SetVideoOutputDirectory(path);
+        else if (File.Exists(path))
+            ViewModel.SetVideoOutputDirectory(Path.GetDirectoryName(path) ?? "");
+
+        e.Handled = true;
+    }
+
+    private void ModeToggle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        => e.Handled = true;
+
     private static void HandleFileDrop(DragEventArgs e, Action<string> apply, params string[] extensions)
     {
         if (!e.Data.GetDataPresent(DataFormats.FileDrop))

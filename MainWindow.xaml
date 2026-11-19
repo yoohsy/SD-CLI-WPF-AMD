@@ -52,10 +52,47 @@
 
             <StackPanel Margin="62,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
                 <TextBlock Text="SD CLI" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" />
-                <TextBlock Text="LOCAL IMAGE GENERATOR  ·  STABLE-DIFFUSION.CPP / AMD VULKAN"
+                <TextBlock Text="LOCAL IMAGE / VIDEO GENERATOR  ·  STABLE-DIFFUSION.CPP / AMD VULKAN"
                            FontSize="9"
                            Foreground="{DynamicResource MutedBrush}"
                            Margin="0,2,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        MouseLeftButtonDown="ModeToggle_MouseLeftButtonDown"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button Content="ФОТО" Width="86" Height="34" FontSize="11"
+                        Command="{Binding SelectPhotoModeCommand}"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPhotoMode}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource AccentGradient}" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="ВИДЕО" Width="86" Height="34" FontSize="11" Margin="6,0,0,0"
+                        Command="{Binding SelectVideoModeCommand}"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsVideoMode}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource AccentGradient}" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,8,0">
@@ -76,12 +113,14 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="18,12,18,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="252" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="340" />
-            </Grid.ColumnDefinitions>
+        <Grid Grid.Row="1">
+            <Grid Margin="18,12,18,12"
+                  Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVisibility}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="252" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="340" />
+                </Grid.ColumnDefinitions>
 
             <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,0,6,0">
@@ -495,6 +534,640 @@
                     </Grid>
                 </Border>
             </Grid>
+            </Grid>
+
+            <Grid Margin="18,12,18,12"
+                  Visibility="{Binding IsVideoMode, Converter={StaticResource BoolToVisibility}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="252" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="340" />
+                </Grid.ColumnDefinitions>
+
+                <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,0,6,0">
+                        <Border Style="{StaticResource CardStyle}"
+                                AllowDrop="True"
+                                PreviewDragOver="DropTarget_PreviewDragOver"
+                                PreviewDrop="VideoModelDrop_PreviewDrop">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="МОДЕЛЬ · DIFFUSION" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" />
+                                    <Button Content="Выбрать"
+                                            Style="{StaticResource GhostButtonStyle}"
+                                            Command="{Binding BrowseVideoModelCommand}"
+                                            FontSize="11"
+                                            Padding="9,5"
+                                            HorizontalAlignment="Right" />
+                                </Grid>
+                                <TextBlock Text="{Binding VideoModelPath}"
+                                           Style="{StaticResource ValueTextStyle}"
+                                           Margin="0,10,0,0"
+                                           ToolTip="{Binding VideoModelPath}"
+                                           Visibility="{Binding VideoModelPath, Converter={StaticResource NotEmptyToVisibility}}" />
+                                <TextBlock Text="Модель не выбрана"
+                                           Margin="0,10,0,0"
+                                           Foreground="{DynamicResource AccentLightBrush}"
+                                           FontSize="12"
+                                           Visibility="{Binding VideoModelPath, Converter={StaticResource EmptyToVisibility}}" />
+                                <TextBlock Text=".gguf / .safetensors · можно перетащить"
+                                           Style="{StaticResource HintTextStyle}"
+                                           Margin="0,5,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}"
+                                Margin="0,12,0,0"
+                                AllowDrop="True"
+                                PreviewDragOver="DropTarget_PreviewDragOver"
+                                PreviewDrop="VideoEncoderDrop_PreviewDrop">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="ТЕКСТ ЕНКОДЕР · T5XXL" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" />
+                                    <Button Content="Выбрать"
+                                            Style="{StaticResource GhostButtonStyle}"
+                                            Command="{Binding BrowseVideoEncoderCommand}"
+                                            FontSize="11"
+                                            Padding="9,5"
+                                            HorizontalAlignment="Right" />
+                                </Grid>
+                                <TextBlock Text="{Binding VideoTextEncoderPath}"
+                                           Style="{StaticResource ValueTextStyle}"
+                                           Margin="0,10,0,0"
+                                           ToolTip="{Binding VideoTextEncoderPath}"
+                                           Visibility="{Binding VideoTextEncoderPath, Converter={StaticResource NotEmptyToVisibility}}" />
+                                <TextBlock Text="Не обязательно"
+                                           Margin="0,10,0,0"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="12"
+                                           Visibility="{Binding VideoTextEncoderPath, Converter={StaticResource EmptyToVisibility}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}"
+                                Margin="0,12,0,0"
+                                AllowDrop="True"
+                                PreviewDragOver="DropTarget_PreviewDragOver"
+                                PreviewDrop="VideoVaeDrop_PreviewDrop">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="VAE" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" />
+                                    <Button Content="Выбрать"
+                                            Style="{StaticResource GhostButtonStyle}"
+                                            Command="{Binding BrowseVideoVaeCommand}"
+                                            FontSize="11"
+                                            Padding="9,5"
+                                            HorizontalAlignment="Right" />
+                                </Grid>
+                                <TextBlock Text="{Binding VideoVaePath}"
+                                           Style="{StaticResource ValueTextStyle}"
+                                           Margin="0,10,0,0"
+                                           ToolTip="{Binding VideoVaePath}"
+                                           Visibility="{Binding VideoVaePath, Converter={StaticResource NotEmptyToVisibility}}" />
+                                <TextBlock Text="Не обязательно"
+                                           Margin="0,10,0,0"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="12"
+                                           Visibility="{Binding VideoVaePath, Converter={StaticResource EmptyToVisibility}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}"
+                                Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="ИСХОДНИК (ПРИ НАДОБНОСТИ)" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock Text="-i / --end-img · можно перетащить"
+                                           Style="{StaticResource HintTextStyle}"
+                                           Margin="0,4,0,0" />
+
+                                <Grid Margin="0,10,0,0"
+                                      AllowDrop="True"
+                                      PreviewDragOver="DropTarget_PreviewDragOver"
+                                      PreviewDrop="VideoInitImageDrop_PreviewDrop">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding VideoInitImagePath}"
+                                               Style="{StaticResource ValueTextStyle}"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{Binding VideoInitImagePath}"
+                                               Visibility="{Binding VideoInitImagePath, Converter={StaticResource NotEmptyToVisibility}}" />
+                                    <TextBlock Text="Начальный кадр"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding VideoInitImagePath, Converter={StaticResource EmptyToVisibility}}" />
+                                    <Button Grid.Column="1"
+                                            Content="Выбрать"
+                                            Style="{StaticResource GhostButtonStyle}"
+                                            Command="{Binding BrowseVideoInitImageCommand}"
+                                            FontSize="10"
+                                            Padding="7,4" />
+                                </Grid>
+
+                                <Grid Margin="0,8,0,0"
+                                      AllowDrop="True"
+                                      PreviewDragOver="DropTarget_PreviewDragOver"
+                                      PreviewDrop="VideoEndImageDrop_PreviewDrop">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding VideoEndImagePath}"
+                                               Style="{StaticResource ValueTextStyle}"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{Binding VideoEndImagePath}"
+                                               Visibility="{Binding VideoEndImagePath, Converter={StaticResource NotEmptyToVisibility}}" />
+                                    <TextBlock Text="Конечный кадр"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding VideoEndImagePath, Converter={StaticResource EmptyToVisibility}}" />
+                                    <Button Grid.Column="1"
+                                            Content="Выбрать"
+                                            Style="{StaticResource GhostButtonStyle}"
+                                            Command="{Binding BrowseVideoEndImageCommand}"
+                                            FontSize="10"
+                                            Padding="7,4" />
+                                </Grid>
+
+                                <Grid Margin="0,8,0,0"
+                                      AllowDrop="True"
+                                      PreviewDragOver="DropTarget_PreviewDragOver"
+                                      PreviewDrop="VideoClipVisionDrop_PreviewDrop">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding VideoClipVisionPath}"
+                                               Style="{StaticResource ValueTextStyle}"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{Binding VideoClipVisionPath}"
+                                               Visibility="{Binding VideoClipVisionPath, Converter={StaticResource NotEmptyToVisibility}}" />
+                                    <TextBlock Text="Clip Vision (для I2V)"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding VideoClipVisionPath, Converter={StaticResource EmptyToVisibility}}" />
+                                    <Button Grid.Column="1"
+                                            Content="Выбрать"
+                                            Style="{StaticResource GhostButtonStyle}"
+                                            Command="{Binding BrowseVideoClipVisionCommand}"
+                                            FontSize="10"
+                                            Padding="7,4" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}"
+                                Margin="0,12,0,0"
+                                AllowDrop="True"
+                                PreviewDragOver="DropTarget_PreviewDragOver"
+                                PreviewDrop="VideoOutputDrop_PreviewDrop">
+                            <StackPanel>
+                                <TextBlock Text="ПАПКА СОХРАНЕНИЯ" Style="{StaticResource SectionTitleStyle}" />
+                                <Grid Margin="0,10,0,0">
+                                    <Button Content="Выбрать"
+                                            Style="{StaticResource GhostButtonStyle}"
+                                            Command="{Binding BrowseVideoOutputCommand}"
+                                            FontSize="11"
+                                            Padding="9,5"
+                                            HorizontalAlignment="Right" />
+                                    <TextBlock Text="{Binding VideoOutputDirectory}"
+                                               Style="{StaticResource ValueTextStyle}"
+                                               Width="145"
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{Binding VideoOutputDirectory}"
+                                               Visibility="{Binding VideoOutputDirectory, Converter={StaticResource NotEmptyToVisibility}}" />
+                                    <TextBlock Text="Папка не выбрана"
+                                               Foreground="{DynamicResource AccentLightBrush}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding VideoOutputDirectory, Converter={StaticResource EmptyToVisibility}}" />
+                                </Grid>
+                                <Button Content="Открыть папку"
+                                        Style="{StaticResource GhostButtonStyle}"
+                                        Command="{Binding OpenVideoOutputCommand}"
+                                        FontSize="11"
+                                        Padding="9,5"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer Grid.Column="1" Margin="14,0,14,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,0,6,0">
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="ПОЗИТИВНЫЙ ПРОМПТ" Style="{StaticResource SectionTitleStyle}" />
+                                    <TextBlock Text="основное описание" Style="{StaticResource HintTextStyle}" HorizontalAlignment="Right" />
+                                </Grid>
+                                <TextBox Text="{Binding VideoPrompt, UpdateSourceTrigger=PropertyChanged}"
+                                         Tag="Видео с плавным движением, мягкий свет, высокая детализация..."
+                                         Style="{StaticResource InputTextBoxStyle}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         Height="72"
+                                         Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="НЕГАТИВНЫЙ ПРОМПТ" Style="{StaticResource SectionTitleStyle}" />
+                                    <TextBlock Text="что исключить" Style="{StaticResource HintTextStyle}" HorizontalAlignment="Right" />
+                                </Grid>
+                                <TextBox Text="{Binding VideoNegativePrompt, UpdateSourceTrigger=PropertyChanged}"
+                                         Tag="blur, low quality, artifacts..."
+                                         Style="{StaticResource InputTextBoxStyle}"
+                                         TextWrapping="Wrap"
+                                         Height="48"
+                                         Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="ПАРАМЕТРЫ ВИДЕО" Style="{StaticResource SectionTitleStyle}" />
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="18" />
+                                        <RowDefinition Height="30" />
+                                        <RowDefinition Height="12" />
+                                        <RowDefinition Height="18" />
+                                        <RowDefinition Height="30" />
+                                        <RowDefinition Height="12" />
+                                        <RowDefinition Height="18" />
+                                        <RowDefinition Height="30" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Шаги" Style="{StaticResource HintTextStyle}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="CFG" Style="{StaticResource HintTextStyle}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Ширина" Style="{StaticResource HintTextStyle}" VerticalAlignment="Center" />
+
+                                    <controls:NumericStepper Grid.Row="1" Grid.Column="0" Value="{Binding VideoSteps}" Minimum="1" Maximum="50" Step="1" Margin="0,0,10,0" />
+                                    <controls:NumericStepper Grid.Row="1" Grid.Column="1" Value="{Binding VideoCfg}" Minimum="1" Maximum="20" Step="0.5" Decimals="1" Margin="0,0,10,0" />
+                                    <controls:NumericStepper Grid.Row="1" Grid.Column="2" Value="{Binding VideoWidth}" Minimum="256" Maximum="2048" Step="64" />
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Высота" Style="{StaticResource HintTextStyle}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="Кадры" Style="{StaticResource HintTextStyle}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock Grid.Row="3" Grid.Column="2" Text="FPS" Style="{StaticResource HintTextStyle}" VerticalAlignment="Center" />
+
+                                    <controls:NumericStepper Grid.Row="4" Grid.Column="0" Value="{Binding VideoHeight}" Minimum="256" Maximum="2048" Step="64" Margin="0,0,10,0" />
+                                    <controls:NumericStepper Grid.Row="4" Grid.Column="1" Value="{Binding VideoFrames}" Minimum="1" Maximum="300" Step="1" Margin="0,0,10,0" />
+                                    <controls:NumericStepper Grid.Row="4" Grid.Column="2" Value="{Binding VideoFps}" Minimum="1" Maximum="60" Step="1" />
+
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Сид" Style="{StaticResource HintTextStyle}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Text="Сэмплинг" Style="{StaticResource HintTextStyle}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <Grid Grid.Row="7" Grid.Column="0" Margin="0,0,10,0">
+                                        <controls:NumericStepper Value="{Binding VideoSeed}"
+                                                                 Minimum="1"
+                                                                 Maximum="1000000000"
+                                                                 Step="1"
+                                                                 IsEnabled="{Binding VideoRandomSeed, Converter={StaticResource InverseBool}}" />
+                                        <TextBlock Text="-1"
+                                                   Foreground="{DynamicResource AccentLightBrush}"
+                                                   FontSize="13"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   IsHitTestVisible="False"
+                                                   Visibility="{Binding VideoRandomSeed, Converter={StaticResource BoolToVisibility}}" />
+                                    </Grid>
+                                    <CheckBox Grid.Row="7" Grid.Column="1"
+                                              Content="Случайный"
+                                              Style="{StaticResource SmallCheckStyle}"
+                                              IsChecked="{Binding VideoRandomSeed}"
+                                              Margin="0,0,10,0" />
+                                    <Border Grid.Row="7" Grid.Column="2"
+                                            Background="{DynamicResource FieldBrush}"
+                                            BorderBrush="{DynamicResource LineBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="8">
+                                        <TextBlock Text="DPM++ 2M"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontSize="12"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="120" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Command="{Binding GenerateVideoCommand}"
+                                    Height="58"
+                                    FontSize="14">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="M13,2 L3,14 L10,14 L9,22 L19,10 L12,10 Z"
+                                          Fill="White"
+                                          Stretch="Uniform"
+                                          Width="17"
+                                          Height="17" />
+                                    <TextBlock Text="СГЕНЕРИРОВАТЬ ВИДЕО" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="1"
+                                    Style="{StaticResource GhostButtonStyle}"
+                                    Content="СТОП"
+                                    Command="{Binding CancelCommand}"
+                                    IsEnabled="{Binding IsGenerating}"
+                                    Height="58"
+                                    Margin="10,0,0,0" />
+                        </Grid>
+
+                        <Expander Header="ЛОГ ВЫПОЛНЕНИЯ"
+                                  Foreground="{DynamicResource SecondaryTextBrush}"
+                                  Background="Transparent"
+                                  BorderBrush="{DynamicResource LineBrush}"
+                                  FontSize="11"
+                                  FontWeight="SemiBold"
+                                  Margin="0,10,0,0">
+                            <ListBox ItemsSource="{Binding LogLines}"
+                                     Height="120"
+                                     Margin="0,6,0,0"
+                                     Background="{DynamicResource FieldBrush}"
+                                     BorderBrush="{DynamicResource LineBrush}"
+                                     BorderThickness="1"
+                                     Foreground="{DynamicResource SecondaryTextBrush}"
+                                     FontSize="11" />
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="252" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid>
+                                <TextBlock Text="РЕЗУЛЬТАТ" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock Text="последний кадр" Style="{StaticResource HintTextStyle}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Border Grid.Row="1"
+                                    Margin="0,10,0,0"
+                                    Background="{DynamicResource DarkPanelBrush}"
+                                    BorderBrush="{DynamicResource LineBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <Grid>
+                                    <Image Source="{Binding PreviewImage}"
+                                           Stretch="Uniform"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False"
+                                                Visibility="{Binding HasPreview, Converter={StaticResource InverseBoolToVisibility}}">
+                                        <Path Data="M21,19 V5 C21,3.9 20.1,3 19,3 H5 C3.9,3 3,3.9 3,5 V19 C3,20.1 3.9,21 5,21 H19 C20.1,21 21,20.1 21,19 Z M8.5,13.5 L11,16.5 L14.5,12 L19,18 H5 L8.5,13.5 Z M8,9 A1.5,1.5 0 1,1 11,9 A1.5,1.5 0 1,1 8,9 Z"
+                                              Fill="{DynamicResource MutedBrush}"
+                                              Stretch="Uniform"
+                                              Width="46"
+                                              Height="46"
+                                              HorizontalAlignment="Center" />
+                                        <TextBlock Text="Здесь появится кадр видео"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,12,0,0"
+                                                   HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IsHitTestVisible="False"
+                                                Visibility="{Binding IsGenerating, Converter={StaticResource BoolToVisibility}}">
+                                        <Ellipse Width="42"
+                                                 Height="42"
+                                                 Stroke="{DynamicResource AccentBrush}"
+                                                 StrokeThickness="3"
+                                                 StrokeDashArray="4 3"
+                                                 RenderTransformOrigin="0.5,0.5">
+                                            <Ellipse.RenderTransform>
+                                                <RotateTransform Angle="0" />
+                                            </Ellipse.RenderTransform>
+                                            <Ellipse.Triggers>
+                                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                             From="0"
+                                                                             To="360"
+                                                                             Duration="0:0:1.1" />
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </Ellipse.Triggers>
+                                        </Ellipse>
+                                        <TextBlock Text="Генерация видео..."
+                                                   Foreground="{DynamicResource AccentLightBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,12,0,0"
+                                                   HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1" Style="{StaticResource CardStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid>
+                                <TextBlock Text="ИСТОРИЯ" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock Text="двойной клик — открыть" Style="{StaticResource HintTextStyle}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <ListBox Grid.Row="1"
+                                     ItemsSource="{Binding History}"
+                                     Style="{StaticResource HistoryListStyle}"
+                                     Margin="0,10,0,0"
+                                     MouseDoubleClick="HistoryList_MouseDoubleClick">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="52" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="26" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="52"
+                                                    Height="42"
+                                                    CornerRadius="6"
+                                                    Background="{DynamicResource FieldBrush}"
+                                                    ClipToBounds="True">
+                                                <Grid>
+                                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                    <Path Data="M10,3 L10,19 L19,11 Z"
+                                                          Fill="{DynamicResource AccentLightBrush}"
+                                                          Stretch="Uniform"
+                                                          Width="14"
+                                                          Height="14"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          Visibility="{Binding IsVideo, Converter={StaticResource BoolToVisibility}}" />
+                                                </Grid>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextBrush}" FontSize="12" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding TimeText}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <Button Grid.Column="2"
+                                                    Style="{StaticResource IconButtonStyle}"
+                                                    Width="26"
+                                                    Height="26"
+                                                    Command="{Binding DataContext.RemoveHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip="Убрать из истории">
+                                                <Path Data="M3,3 L5,3 L10,8 L15,3 L17,3 L17,5 L12,10 L17,15 L17,17 L15,17 L10,12 L5,17 L3,17 L3,15 L8,10 L3,5 Z"
+                                                      Fill="{DynamicResource MutedBrush}"
+                                                      Stretch="Uniform"
+                                                      Width="9"
+                                                      Height="9" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <Border Grid.Row="1"
+                    Panel.ZIndex="5"
+                    Background="#E509090B"
+                    Visibility="{Binding IsModeSelectionVisible, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="720">
+                    <TextBlock Text="ВЫБЕРИТЕ РЕЖИМ"
+                               Foreground="{DynamicResource TextBrush}"
+                               FontSize="26"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="Генерация изображений или видео на одном движке"
+                               Foreground="{DynamicResource MutedBrush}"
+                               FontSize="12"
+                               HorizontalAlignment="Center"
+                               Margin="0,8,0,0" />
+                    <Grid Margin="0,30,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Height="218" Margin="0,0,10,0" Padding="24"
+                                Background="{DynamicResource CardBrush}"
+                                BorderThickness="2"
+                                CornerRadius="14">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPhotoMode}" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Border Width="46" Height="46" CornerRadius="12" HorizontalAlignment="Left" Background="{DynamicResource AccentGradient}">
+                                    <Path Data="M21,19 V5 C21,3.9 20.1,3 19,3 H5 C3.9,3 3,3.9 3,5 V19 C3,20.1 3.9,21 5,21 H19 C20.1,21 21,20.1 21,19 Z M8.5,13.5 L11,16.5 L14.5,12 L19,18 H5 L8.5,13.5 Z M8,9 A1.5,1.5 0 1,1 11,9 A1.5,1.5 0 1,1 8,9 Z"
+                                          Fill="White" Stretch="Uniform" Width="24" Height="24" />
+                                </Border>
+                                <TextBlock Grid.Row="1" Text="ГЕНЕРАЦИЯ ФОТО" Foreground="{DynamicResource TextBrush}"
+                                           FontSize="17" FontWeight="Bold" Margin="0,16,0,0" />
+                                <TextBlock Grid.Row="2" Text="Картинки: модель, LoRA, промпты и параметры сэмплирования."
+                                           Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,8,0,0" />
+                                <Grid Grid.Row="3">
+                                    <Button Content="ВЫБРАТЬ" Style="{StaticResource PrimaryButtonStyle}"
+                                            Command="{Binding SelectPhotoModeCommand}"
+                                            HorizontalAlignment="Left" Padding="18,8" />
+                                    <TextBlock Text="последний режим" Foreground="{DynamicResource AccentLightBrush}"
+                                               FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVisibility}}" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Column="1" Height="218" Margin="10,0,0,0" Padding="24"
+                                Background="{DynamicResource CardBrush}"
+                                BorderThickness="2"
+                                CornerRadius="14">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsVideoMode}" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Border Width="46" Height="46" CornerRadius="12" HorizontalAlignment="Left" Background="{DynamicResource AccentGradient}">
+                                    <Path Data="M3,5 H15 V19 H3 Z M17,8 L22,5 V19 L17,16 Z"
+                                          Fill="White" Stretch="Uniform" Width="24" Height="24" />
+                                </Border>
+                                <TextBlock Grid.Row="1" Text="ГЕНЕРАЦИЯ ВИДЕО" Foreground="{DynamicResource TextBrush}"
+                                           FontSize="17" FontWeight="Bold" Margin="0,16,0,0" />
+                                <TextBlock Grid.Row="2" Text="Видео: отдельные модель, текст енкодер и VAE, кадры и FPS."
+                                           Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,8,0,0" />
+                                <Grid Grid.Row="3">
+                                    <Button Content="ВЫБРАТЬ" Style="{StaticResource PrimaryButtonStyle}"
+                                            Command="{Binding SelectVideoModeCommand}"
+                                            HorizontalAlignment="Left" Padding="18,8" />
+                                    <TextBlock Text="последний режим" Foreground="{DynamicResource AccentLightBrush}"
+                                               FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Visibility="{Binding IsVideoMode, Converter={StaticResource BoolToVisibility}}" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <Button Content="ПРОДОЛЖИТЬ С ПОСЛЕДНЕГО РЕЖИМА"
+                            Style="{StaticResource GhostButtonStyle}"
+                            Command="{Binding ContinueCommand}"
+                            IsDefault="True"
+                            Width="300"
+                            Height="42"
+                            Margin="0,24,0,0" />
+                </StackPanel>
+            </Border>
         </Grid>
 
         <Border Grid.Row="2"

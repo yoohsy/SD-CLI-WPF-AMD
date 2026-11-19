@@ -21,6 +21,25 @@ public sealed record GenerationRequest(
     double LoraWeight,
     string OutputPath);
 
+public sealed record VideoGenerationRequest(
+    string DiffusionModelPath,
+    string TextEncoderPath,
+    string VaePath,
+    string InitImagePath,
+    string EndImagePath,
+    string ClipVisionPath,
+    string FinalPrompt,
+    string NegativePrompt,
+    double Width,
+    double Height,
+    double Steps,
+    double Cfg,
+    double Seed,
+    int Frames,
+    int Fps,
+    string OutputPath,
+    string PreviewPath);
+
 public sealed record EngineResult(bool Success, string OutputPath, int ExitCode, string Message);
 
 public sealed class EngineRunner
@@ -44,25 +63,12 @@ public sealed class EngineRunner
         }
     }
 
-    public async Task<EngineResult> RunAsync(GenerationRequest request, IProgress<string> log, CancellationToken cancellationToken)
+    public Task<EngineResult> RunAsync(GenerationRequest request, IProgress<string> log, CancellationToken cancellationToken)
     {
         if (!File.Exists(EnginePath))
-            return new EngineResult(false, request.OutputPath, -1, "Не найден engine\\sd-cli.exe");
+            return Task.FromResult(new EngineResult(false, request.OutputPath, -1, "Не найден engine\\sd-cli.exe"));
 
-        var outputFolder = Path.GetDirectoryName(request.OutputPath);
-        if (!string.IsNullOrEmpty(outputFolder))
-            Directory.CreateDirectory(outputFolder);
-
-        var psi = new ProcessStartInfo
-        {
-            FileName = EnginePath,
-            WorkingDirectory = Path.GetDirectoryName(EnginePath)!,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-
+        var psi = CreateStartInfo();
         psi.ArgumentList.Add("-m");
         psi.ArgumentList.Add(request.ModelPath);
         psi.ArgumentList.Add("-p");
@@ -96,6 +102,105 @@ public sealed class EngineRunner
         psi.ArgumentList.Add("-o");
         psi.ArgumentList.Add(request.OutputPath);
 
+        return RunProcessAsync(psi, request.OutputPath, log, cancellationToken);
+    }
+
+    public Task<EngineResult> RunVideoAsync(VideoGenerationRequest request, IProgress<string> log, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(EnginePath))
+            return Task.FromResult(new EngineResult(false, request.OutputPath, -1, "Не найден engine\\sd-cli.exe"));
+
+        var psi = CreateStartInfo();
+        psi.ArgumentList.Add("-M");
+        psi.ArgumentList.Add("vid_gen");
+        psi.ArgumentList.Add("--diffusion-model");
+        psi.ArgumentList.Add(request.DiffusionModelPath);
+
+        if (!string.IsNullOrWhiteSpace(request.TextEncoderPath))
+        {
+            psi.ArgumentList.Add("--t5xxl");
+            psi.ArgumentList.Add(request.TextEncoderPath);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.VaePath))
+        {
+            psi.ArgumentList.Add("--vae");
+            psi.ArgumentList.Add(request.VaePath);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ClipVisionPath))
+        {
+            psi.ArgumentList.Add("--clip_vision");
+            psi.ArgumentList.Add(request.ClipVisionPath);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.InitImagePath))
+        {
+            psi.ArgumentList.Add("-i");
+            psi.ArgumentList.Add(request.InitImagePath);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.EndImagePath))
+        {
+            psi.ArgumentList.Add("--end-img");
+            psi.ArgumentList.Add(request.EndImagePath);
+        }
+
+        psi.ArgumentList.Add("-p");
+        psi.ArgumentList.Add(request.FinalPrompt.Replace("\"", ""));
+        psi.ArgumentList.Add("-n");
+        psi.ArgumentList.Add(request.NegativePrompt.Replace("\"", ""));
+        psi.ArgumentList.Add("-W");
+        psi.ArgumentList.Add(((int)request.Width).ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("-H");
+        psi.ArgumentList.Add(((int)request.Height).ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("--steps");
+        psi.ArgumentList.Add(((int)request.Steps).ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("--cfg-scale");
+        psi.ArgumentList.Add(request.Cfg.ToString("0.0", CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("--sampling-method");
+        psi.ArgumentList.Add("dpm++2m");
+        psi.ArgumentList.Add("-s");
+        psi.ArgumentList.Add(((int)request.Seed).ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("--video-frames");
+        psi.ArgumentList.Add(request.Frames.ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("--fps");
+        psi.ArgumentList.Add(request.Fps.ToString(CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("--preview");
+        psi.ArgumentList.Add("vae");
+        psi.ArgumentList.Add("--preview-path");
+        psi.ArgumentList.Add(request.PreviewPath);
+        psi.ArgumentList.Add("-o");
+        psi.ArgumentList.Add(request.OutputPath);
+
+        return RunProcessAsync(psi, request.OutputPath, log, cancellationToken);
+    }
+
+    private ProcessStartInfo CreateStartInfo()
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = EnginePath,
+            WorkingDirectory = Path.GetDirectoryName(EnginePath)!,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+
+        return psi;
+    }
+
+    private async Task<EngineResult> RunProcessAsync(
+        ProcessStartInfo psi,
+        string outputPath,
+        IProgress<string> log,
+        CancellationToken cancellationToken)
+    {
+        var outputFolder = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputFolder))
+            Directory.CreateDirectory(outputFolder);
+
         using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         _process = process;
 
@@ -126,12 +231,12 @@ public sealed class EngineRunner
         try
         {
             if (!process.Start())
-                return new EngineResult(false, request.OutputPath, -1, "Не удалось запустить sd-cli.exe");
+                return new EngineResult(false, outputPath, -1, "Не удалось запустить sd-cli.exe");
         }
         catch (Exception ex)
         {
             _process = null;
-            return new EngineResult(false, request.OutputPath, -1, ex.Message);
+            return new EngineResult(false, outputPath, -1, ex.Message);
         }
 
         process.BeginOutputReadLine();
@@ -143,7 +248,7 @@ public sealed class EngineRunner
         }
         catch (OperationCanceledException)
         {
-            return new EngineResult(false, request.OutputPath, -2, "Генерация отменена");
+            return new EngineResult(false, outputPath, -2, "Генерация отменена");
         }
         finally
         {
@@ -153,13 +258,13 @@ public sealed class EngineRunner
             _process = null;
         }
 
-        var success = process.ExitCode == 0 && File.Exists(request.OutputPath);
+        var success = process.ExitCode == 0 && File.Exists(outputPath);
         var message = success
             ? "Готово"
             : process.ExitCode == 0
                 ? "Файл результата не создан"
                 : "sd-cli завершился с кодом " + process.ExitCode.ToString(CultureInfo.InvariantCulture);
 
-        return new EngineResult(success, request.OutputPath, process.ExitCode, message);
+        return new EngineResult(success, outputPath, process.ExitCode, message);
     }
 }

@@ -23,6 +23,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ObservableCollection<GenerationItem> _history = new();
 
     private CancellationTokenSource? _cancellation;
+    private GenerationMode _mode = GenerationMode.Photo;
+    private bool _isModeSelectionVisible = true;
     private string _modelPath = "";
     private string _loraPath = "";
     private string _outputDirectory = "";
@@ -42,12 +44,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _lastLog = "Ожидание команды...";
     private ImageSource? _previewImage;
 
+    private string _videoModelPath = "";
+    private string _videoTextEncoderPath = "";
+    private string _videoVaePath = "";
+    private string _videoInitImagePath = "";
+    private string _videoEndImagePath = "";
+    private string _videoClipVisionPath = "";
+    private string _videoOutputDirectory = "";
+    private string _videoPrompt = "";
+    private string _videoNegativePrompt = "";
+    private double _videoSteps = 25;
+    private double _videoCfg = 6.0;
+    private double _videoWidth = 768;
+    private double _videoHeight = 768;
+    private double _videoFrames = 49;
+    private double _videoFps = 24;
+    private double _videoSeed = 42;
+    private bool _videoRandomSeed;
+
     public MainViewModel()
     {
         var settings = SettingsService.Load();
+        _mode = settings.Mode;
         _modelPath = settings.ModelPath;
         _loraPath = settings.LoraPath;
         _outputDirectory = settings.OutputDirectory;
+        _prompt = settings.Prompt;
+        _negativePrompt = settings.NegativePrompt;
         _steps = settings.Steps;
         _cfg = settings.Cfg;
         _width = settings.Width;
@@ -56,11 +79,40 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _loraWeight = settings.LoraWeight;
         _useLora = settings.UseLora;
         _randomSeed = settings.RandomSeed;
+        _videoModelPath = settings.VideoModelPath;
+        _videoTextEncoderPath = settings.VideoTextEncoderPath;
+        _videoVaePath = settings.VideoVaePath;
+        _videoInitImagePath = settings.VideoInitImagePath;
+        _videoEndImagePath = settings.VideoEndImagePath;
+        _videoClipVisionPath = settings.VideoClipVisionPath;
+        _videoOutputDirectory = settings.VideoOutputDirectory;
+        _videoPrompt = settings.VideoPrompt;
+        _videoNegativePrompt = settings.VideoNegativePrompt;
+        _videoSteps = settings.VideoSteps;
+        _videoCfg = settings.VideoCfg;
+        _videoWidth = settings.VideoWidth;
+        _videoHeight = settings.VideoHeight;
+        _videoFrames = settings.VideoFrames;
+        _videoFps = settings.VideoFps;
+        _videoSeed = settings.VideoSeed;
+        _videoRandomSeed = settings.VideoRandomSeed;
 
+        SelectPhotoModeCommand = new RelayCommand(() => SelectMode(GenerationMode.Photo), () => !IsGenerating);
+        SelectVideoModeCommand = new RelayCommand(() => SelectMode(GenerationMode.Video), () => !IsGenerating);
+        ContinueCommand = new RelayCommand(() => SelectMode(Mode), () => !IsGenerating);
         BrowseModelCommand = new RelayCommand(BrowseModel);
         BrowseLoraCommand = new RelayCommand(BrowseLora);
         BrowseOutputCommand = new RelayCommand(BrowseOutput);
+        BrowseVideoModelCommand = new RelayCommand(BrowseVideoModel);
+        BrowseVideoEncoderCommand = new RelayCommand(BrowseVideoEncoder);
+        BrowseVideoVaeCommand = new RelayCommand(BrowseVideoVae);
+        BrowseVideoInitImageCommand = new RelayCommand(BrowseVideoInitImage);
+        BrowseVideoEndImageCommand = new RelayCommand(BrowseVideoEndImage);
+        BrowseVideoClipVisionCommand = new RelayCommand(BrowseVideoClipVision);
+        BrowseVideoOutputCommand = new RelayCommand(BrowseVideoOutput);
+        OpenVideoOutputCommand = new RelayCommand(OpenVideoOutput);
         GenerateCommand = new RelayCommand(Generate, () => CanGenerate);
+        GenerateVideoCommand = new RelayCommand(GenerateVideo, () => CanGenerateVideo);
         CancelCommand = new RelayCommand(Cancel, () => IsGenerating);
         OpenOutputCommand = new RelayCommand(OpenOutput);
         OpenHistoryCommand = new RelayCommand<GenerationItem>(OpenHistory);
@@ -84,10 +136,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<string> LogLines => _logLines;
     public ObservableCollection<GenerationItem> History => _history;
 
+    public RelayCommand SelectPhotoModeCommand { get; }
+    public RelayCommand SelectVideoModeCommand { get; }
+    public RelayCommand ContinueCommand { get; }
     public RelayCommand BrowseModelCommand { get; }
     public RelayCommand BrowseLoraCommand { get; }
     public RelayCommand BrowseOutputCommand { get; }
+    public RelayCommand BrowseVideoModelCommand { get; }
+    public RelayCommand BrowseVideoEncoderCommand { get; }
+    public RelayCommand BrowseVideoVaeCommand { get; }
+    public RelayCommand BrowseVideoInitImageCommand { get; }
+    public RelayCommand BrowseVideoEndImageCommand { get; }
+    public RelayCommand BrowseVideoClipVisionCommand { get; }
+    public RelayCommand BrowseVideoOutputCommand { get; }
+    public RelayCommand OpenVideoOutputCommand { get; }
     public RelayCommand GenerateCommand { get; }
+    public RelayCommand GenerateVideoCommand { get; }
     public RelayCommand CancelCommand { get; }
     public RelayCommand OpenOutputCommand { get; }
     public RelayCommand<GenerationItem> OpenHistoryCommand { get; }
@@ -96,6 +160,30 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public string EngineText => _engine.EngineExists ? "sd-cli.exe · подключён" : "sd-cli.exe · не найден";
     public bool EngineReady => _engine.EngineExists;
+
+    public GenerationMode Mode
+    {
+        get => _mode;
+        private set
+        {
+            if (_mode == value)
+                return;
+            _mode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsPhotoMode));
+            OnPropertyChanged(nameof(IsVideoMode));
+            SaveSettings();
+        }
+    }
+
+    public bool IsModeSelectionVisible
+    {
+        get => _isModeSelectionVisible;
+        private set => SetFlag(ref _isModeSelectionVisible, value);
+    }
+
+    public bool IsPhotoMode => Mode == GenerationMode.Photo;
+    public bool IsVideoMode => Mode == GenerationMode.Video;
 
     public string ModelPath { get => _modelPath; set => SetText(ref _modelPath, value); }
     public string LoraPath { get => _loraPath; set => SetText(ref _loraPath, value); }
@@ -110,6 +198,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public double Height { get => _height; set => SetNumber(ref _height, value, 768, 512, 2048); }
     public double Seed { get => _seed; set => SetNumber(ref _seed, value, 42, 1, 1000000000); }
     public double LoraWeight { get => _loraWeight; set => SetNumber(ref _loraWeight, value, 0.65, 0.05, 1.5); }
+
+    public string VideoModelPath { get => _videoModelPath; set => SetText(ref _videoModelPath, value); }
+    public string VideoTextEncoderPath { get => _videoTextEncoderPath; set => SetText(ref _videoTextEncoderPath, value); }
+    public string VideoVaePath { get => _videoVaePath; set => SetText(ref _videoVaePath, value); }
+    public string VideoInitImagePath { get => _videoInitImagePath; set => SetText(ref _videoInitImagePath, value); }
+    public string VideoEndImagePath { get => _videoEndImagePath; set => SetText(ref _videoEndImagePath, value); }
+    public string VideoClipVisionPath { get => _videoClipVisionPath; set => SetText(ref _videoClipVisionPath, value); }
+    public string VideoOutputDirectory { get => _videoOutputDirectory; set => SetText(ref _videoOutputDirectory, value); }
+    public string VideoPrompt { get => _videoPrompt; set => SetText(ref _videoPrompt, value); }
+    public string VideoNegativePrompt { get => _videoNegativePrompt; set => SetText(ref _videoNegativePrompt, value); }
+
+    public double VideoSteps { get => _videoSteps; set => SetNumber(ref _videoSteps, value, 25, 1, 50); }
+    public double VideoCfg { get => _videoCfg; set => SetNumber(ref _videoCfg, value, 6, 1, 20); }
+    public double VideoWidth { get => _videoWidth; set => SetNumber(ref _videoWidth, value, 768, 256, 2048); }
+    public double VideoHeight { get => _videoHeight; set => SetNumber(ref _videoHeight, value, 768, 256, 2048); }
+    public double VideoFrames { get => _videoFrames; set => SetNumber(ref _videoFrames, value, 49, 1, 300); }
+    public double VideoFps { get => _videoFps; set => SetNumber(ref _videoFps, value, 24, 1, 60); }
+    public double VideoSeed { get => _videoSeed; set => SetNumber(ref _videoSeed, value, 42, 1, 1000000000); }
+    public bool VideoRandomSeed { get => _videoRandomSeed; set => SetFlag(ref _videoRandomSeed, value); }
 
     public bool UseLora { get => _useLora; set => SetFlag(ref _useLora, value); }
     public bool RandomSeed { get => _randomSeed; set => SetFlag(ref _randomSeed, value); }
@@ -138,6 +245,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         && File.Exists(ModelPath)
         && !string.IsNullOrWhiteSpace(OutputDirectory)
         && (!UseLora || !string.IsNullOrWhiteSpace(LoraPath));
+
+    public bool CanGenerateVideo => !IsGenerating && EngineReady
+        && !string.IsNullOrWhiteSpace(VideoModelPath)
+        && File.Exists(VideoModelPath)
+        && !string.IsNullOrWhiteSpace(VideoOutputDirectory)
+        && (string.IsNullOrWhiteSpace(VideoTextEncoderPath) || File.Exists(VideoTextEncoderPath))
+        && (string.IsNullOrWhiteSpace(VideoVaePath) || File.Exists(VideoVaePath))
+        && (string.IsNullOrWhiteSpace(VideoInitImagePath) || File.Exists(VideoInitImagePath))
+        && (string.IsNullOrWhiteSpace(VideoEndImagePath) || File.Exists(VideoEndImagePath))
+        && (string.IsNullOrWhiteSpace(VideoClipVisionPath) || File.Exists(VideoClipVisionPath));
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -169,6 +286,78 @@ public sealed class MainViewModel : INotifyPropertyChanged
         SaveSettings();
     }
 
+    public void SetVideoModelPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return;
+        VideoModelPath = path;
+        Status = "Видеомодель: " + Path.GetFileName(path);
+        SaveSettings();
+    }
+
+    public void SetVideoTextEncoderPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return;
+        VideoTextEncoderPath = path;
+        Status = "Текст енкодер: " + Path.GetFileName(path);
+        SaveSettings();
+    }
+
+    public void SetVideoVaePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return;
+        VideoVaePath = path;
+        Status = "VAE: " + Path.GetFileName(path);
+        SaveSettings();
+    }
+
+    public void SetVideoOutputDirectory(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return;
+        VideoOutputDirectory = path;
+        Status = "Папка видео: " + path;
+        SaveSettings();
+    }
+
+    public void SetVideoInitImagePath(string path)
+    {
+        SetOptionalVideoFile(path, value => VideoInitImagePath = value, "Начальный кадр");
+    }
+
+    public void SetVideoEndImagePath(string path)
+    {
+        SetOptionalVideoFile(path, value => VideoEndImagePath = value, "Конечный кадр");
+    }
+
+    public void SetVideoClipVisionPath(string path)
+    {
+        SetOptionalVideoFile(path, value => VideoClipVisionPath = value, "Clip Vision");
+    }
+
+    private void SetOptionalVideoFile(string path, Action<string> apply, string label)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return;
+        apply(path);
+        Status = label + ": " + Path.GetFileName(path);
+        SaveSettings();
+    }
+
+    private void SelectMode(GenerationMode mode)
+    {
+        if (IsGenerating)
+            return;
+
+        Mode = mode;
+        IsModeSelectionVisible = false;
+        PreviewImage = null;
+        Status = mode == GenerationMode.Photo ? "Режим: генерация фото" : "Режим: генерация видео";
+        AppendLog(Status);
+    }
+
     private void BrowseModel()
     {
         var dialog = new OpenFileDialog
@@ -198,6 +387,52 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var dialog = new OpenFolderDialog { FolderName = OutputDirectory };
         if (dialog.ShowDialog() == true)
             SetOutputDirectory(dialog.FolderName);
+    }
+
+    private void BrowseVideoModel() => BrowseModelFile("Выберите видеомодель", VideoModelPath, SetVideoModelPath);
+
+    private void BrowseVideoEncoder() => BrowseModelFile("Выберите текст енкодер", VideoTextEncoderPath, SetVideoTextEncoderPath);
+
+    private void BrowseVideoVae() => BrowseModelFile("Выберите VAE", VideoVaePath, SetVideoVaePath);
+
+    private static void BrowseModelFile(string title, string currentPath, Action<string> apply)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = title,
+            Filter = "Модели (*.gguf;*.safetensors)|*.gguf;*.safetensors|Все файлы|*.*",
+            FileName = currentPath
+        };
+        if (dialog.ShowDialog() == true)
+            apply(dialog.FileName);
+    }
+
+    private void BrowseVideoOutput()
+    {
+        var dialog = new OpenFolderDialog { FolderName = VideoOutputDirectory };
+        if (dialog.ShowDialog() == true)
+            SetVideoOutputDirectory(dialog.FolderName);
+    }
+
+    private void BrowseVideoInitImage()
+        => BrowseImageFile("Выберите начальный кадр", VideoInitImagePath, SetVideoInitImagePath);
+
+    private void BrowseVideoEndImage()
+        => BrowseImageFile("Выберите конечный кадр", VideoEndImagePath, SetVideoEndImagePath);
+
+    private void BrowseVideoClipVision()
+        => BrowseModelFile("Выберите Clip Vision", VideoClipVisionPath, SetVideoClipVisionPath);
+
+    private static void BrowseImageFile(string title, string currentPath, Action<string> apply)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = title,
+            Filter = "Изображения (*.png;*.jpg;*.jpeg;*.webp;*.bmp)|*.png;*.jpg;*.jpeg;*.webp;*.bmp|Все файлы|*.*",
+            FileName = currentPath
+        };
+        if (dialog.ShowDialog() == true)
+            apply(dialog.FileName);
     }
 
     private async void Generate()
@@ -269,6 +504,106 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IsGenerating = false;
     }
 
+    private async void GenerateVideo()
+    {
+        if (!CanGenerateVideo)
+            return;
+
+        if (!File.Exists(VideoModelPath))
+        {
+            Status = "Файл видеомодели не найден";
+            AppendLog("Видеомодель не найдена: " + VideoModelPath);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(VideoTextEncoderPath) && !File.Exists(VideoTextEncoderPath))
+        {
+            Status = "Файл текст енкодера не найден";
+            AppendLog("Текст енкодер не найден: " + VideoTextEncoderPath);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(VideoVaePath) && !File.Exists(VideoVaePath))
+        {
+            Status = "Файл VAE не найден";
+            AppendLog("VAE не найден: " + VideoVaePath);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(VideoInitImagePath) && !File.Exists(VideoInitImagePath))
+        {
+            Status = "Начальный кадр не найден";
+            AppendLog("Начальный кадр не найден: " + VideoInitImagePath);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(VideoEndImagePath) && !File.Exists(VideoEndImagePath))
+        {
+            Status = "Конечный кадр не найден";
+            AppendLog("Конечный кадр не найден: " + VideoEndImagePath);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(VideoClipVisionPath) && !File.Exists(VideoClipVisionPath))
+        {
+            Status = "Файл Clip Vision не найден";
+            AppendLog("Clip Vision не найден: " + VideoClipVisionPath);
+            return;
+        }
+
+        var finalPrompt = VideoPrompt.Trim();
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        var outputPath = Path.Combine(VideoOutputDirectory, "vid_" + stamp + ".webm");
+        var previewPath = Path.Combine(VideoOutputDirectory, "vid_" + stamp + "_preview.png");
+        var request = new VideoGenerationRequest(
+            VideoModelPath,
+            VideoTextEncoderPath,
+            VideoVaePath,
+            VideoInitImagePath,
+            VideoEndImagePath,
+            VideoClipVisionPath,
+            finalPrompt,
+            VideoNegativePrompt,
+            VideoWidth,
+            VideoHeight,
+            VideoSteps,
+            VideoCfg,
+            VideoRandomSeed ? -1 : VideoSeed,
+            (int)VideoFrames,
+            (int)VideoFps,
+            outputPath,
+            previewPath);
+
+        IsGenerating = true;
+        Status = "Генерация видео...";
+        AppendLog("Запуск видео: " + Path.GetFileName(outputPath));
+        AppendLog("Промпт: " + finalPrompt);
+
+        _cancellation?.Dispose();
+        _cancellation = new CancellationTokenSource();
+        var progress = new Progress<string>(AppendLog);
+
+        var result = await _engine.RunVideoAsync(request, progress, _cancellation.Token);
+
+        if (result.Success)
+        {
+            var item = CreateHistoryItem(result.OutputPath, finalPrompt);
+            _history.Insert(0, item);
+            while (_history.Count > 30)
+                _history.RemoveAt(_history.Count - 1);
+            SaveHistory();
+            PreviewImage = LoadPreview(previewPath);
+            Status = "Готово · " + Path.GetFileName(result.OutputPath);
+        }
+        else
+        {
+            Status = result.Message;
+        }
+
+        AppendLog(result.Message);
+        IsGenerating = false;
+    }
+
     private void Cancel()
     {
         _cancellation?.Cancel();
@@ -276,12 +611,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Status = "Отмена...";
     }
 
-    private void OpenOutput()
+    private void OpenOutput() => OpenFolder(OutputDirectory);
+
+    private void OpenVideoOutput() => OpenFolder(VideoOutputDirectory);
+
+    private void OpenFolder(string folder)
     {
-        var folder = string.IsNullOrWhiteSpace(OutputDirectory) ? AppContext.BaseDirectory : OutputDirectory;
+        var target = string.IsNullOrWhiteSpace(folder) ? AppContext.BaseDirectory : folder;
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = folder, UseShellExecute = true });
+            Process.Start(new ProcessStartInfo { FileName = target, UseShellExecute = true });
         }
         catch (Exception ex)
         {
@@ -315,15 +654,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         var item = new GenerationItem { Path = path, Prompt = prompt };
         var name = Path.GetFileNameWithoutExtension(path);
-        if (name.Length > 11 && name.StartsWith("gen_", StringComparison.OrdinalIgnoreCase))
+        var isVideo = IsVideoFile(path);
+        item.IsVideo = isVideo;
+        if (name.Length > 11 && (name.StartsWith("gen_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("vid_", StringComparison.OrdinalIgnoreCase)))
         {
             var stamp = name[4..];
             if (DateTime.TryParseExact(stamp, "yyyyMMdd_HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
                 item.CreatedAt = parsed;
         }
-        try { item.Thumbnail = GenerationItem.CreateThumbnail(path); } catch { }
+        var thumbnailSource = isVideo ? VideoPreviewPath(path) : path;
+        if (File.Exists(thumbnailSource))
+        {
+            try { item.Thumbnail = GenerationItem.CreateThumbnail(thumbnailSource); } catch { }
+        }
         return item;
     }
+
+    private static bool IsVideoFile(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".webm", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".avi", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".webp", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string VideoPreviewPath(string path)
+        => Path.ChangeExtension(path, null) + "_preview.png";
 
     private static ImageSource? LoadPreview(string path)
     {
@@ -367,9 +724,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void SaveSettings() => SettingsService.Save(new AppSettings
     {
+        Mode = Mode,
         ModelPath = ModelPath,
         LoraPath = LoraPath,
         OutputDirectory = OutputDirectory,
+        Prompt = Prompt,
+        NegativePrompt = NegativePrompt,
         Steps = Steps,
         Cfg = Cfg,
         Width = Width,
@@ -377,7 +737,24 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Seed = Seed,
         LoraWeight = LoraWeight,
         UseLora = UseLora,
-        RandomSeed = RandomSeed
+        RandomSeed = RandomSeed,
+        VideoModelPath = VideoModelPath,
+        VideoTextEncoderPath = VideoTextEncoderPath,
+        VideoVaePath = VideoVaePath,
+        VideoInitImagePath = VideoInitImagePath,
+        VideoEndImagePath = VideoEndImagePath,
+        VideoClipVisionPath = VideoClipVisionPath,
+        VideoOutputDirectory = VideoOutputDirectory,
+        VideoPrompt = VideoPrompt,
+        VideoNegativePrompt = VideoNegativePrompt,
+        VideoSteps = VideoSteps,
+        VideoCfg = VideoCfg,
+        VideoWidth = VideoWidth,
+        VideoHeight = VideoHeight,
+        VideoFrames = VideoFrames,
+        VideoFps = VideoFps,
+        VideoSeed = VideoSeed,
+        VideoRandomSeed = VideoRandomSeed
     });
 
     private void SetText(ref string field, string value, [CallerMemberName] string? name = null)
@@ -413,8 +790,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void Refresh()
     {
         GenerateCommand.RaiseCanExecuteChanged();
+        GenerateVideoCommand.RaiseCanExecuteChanged();
+        SelectPhotoModeCommand.RaiseCanExecuteChanged();
+        SelectVideoModeCommand.RaiseCanExecuteChanged();
+        ContinueCommand.RaiseCanExecuteChanged();
         CancelCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanGenerate));
+        OnPropertyChanged(nameof(CanGenerateVideo));
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)
